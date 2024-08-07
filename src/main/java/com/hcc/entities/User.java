@@ -1,6 +1,11 @@
 package com.hcc.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.Fetch;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import javax.persistence.*;
@@ -10,49 +15,61 @@ import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name="users")
+@Setter
+@Getter
 public class User implements UserDetails {
-
+    @JsonIgnore
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(nullable = false)
     private Long id;
-
-    private String username;
-
-    private String password;
 
     private LocalDate cohortStartDate;
 
-    @OneToMany
-    private List<Authority> authorities = new ArrayList<>();
+    @Column(unique = true)
+    private String username;
 
-    public User() {}
+    @JsonIgnore
+    private String password;
 
-    public User(String username, String password, LocalDate cohortStartDate, List<Authority> authorities) {
+    @OneToMany(mappedBy = "user", cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
+    private List<Authority> authorities;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "user")
+    private List<Assignment> assignments;
+
+
+    public User() {
+    }
+
+    public User(LocalDate cohortStartDate, String username, String password, List<Authority> authorities) {
+        this.cohortStartDate = cohortStartDate;
         this.username = username;
         this.password = password;
-        this.cohortStartDate = cohortStartDate;
         this.authorities = authorities;
     }
 
-    public LocalDate getCohortStartDate() {
-        return cohortStartDate;
-    }
-
+    @JsonIgnore
     @Override
     public boolean isAccountNonExpired() {
         return true;
     }
 
+    @JsonIgnore
     @Override
     public boolean isAccountNonLocked() {
         return true;
     }
 
+    @JsonIgnore
     @Override
     public boolean isCredentialsNonExpired() {
         return true;
     }
+
+    @JsonIgnore
 
     @Override
     public boolean isEnabled() {
@@ -62,21 +79,16 @@ public class User implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         List<GrantedAuthority> roles = new ArrayList<>();
-        roles.add((GrantedAuthority)new Authority("ROLE_USER"));
+        for (Authority authority : authorities) {
+            roles.add(new SimpleGrantedAuthority(authority.toString()));
+        }
+
         return roles;
     }
 
     @Override
     public String getUsername() {
         return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
     }
 
     @Override
