@@ -49,18 +49,15 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http.csrf().disable().cors().disable(); // do not disable this lot here just for now!!
-
-        http = http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and();
-
-        http = http.exceptionHandling()
+        http.csrf().disable().cors().and()
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
+                .exceptionHandling()
                 .authenticationEntryPoint((request, response, exception) -> {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, exception.getMessage());
                 })
                 .accessDeniedHandler(accessDeniedHandler)
-                .and();
-
-        http.authorizeRequests()
+                .and()
+                .authorizeRequests()
                 .antMatchers("/api/auth/**").permitAll()
                 .antMatchers("/api/reviewer").hasAuthority("ROLE_CODE_REVIEWER")
                 .anyRequest().authenticated();
