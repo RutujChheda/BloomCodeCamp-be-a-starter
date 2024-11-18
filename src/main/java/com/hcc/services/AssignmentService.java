@@ -4,6 +4,7 @@ import com.hcc.dto.PostAssignmentRequest;
 import com.hcc.dto.UpdateAssignmentRequestDTO;
 import com.hcc.entities.Assignment;
 import com.hcc.entities.User;
+import com.hcc.enums.AssignmentEnum;
 import com.hcc.enums.AssignmentStatusEnum;
 import com.hcc.enums.AuthorityEnum;
 import com.hcc.exceptions.AssignmentNotFoundException;
@@ -19,6 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -47,49 +49,13 @@ public class AssignmentService {
         }
     }
 
-    public Assignment updateById(Long assignmentId, UpdateAssignmentRequestDTO updatedAssignment) {
-        // Getting the auth object
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-
-        // Checking if the currently requesting user has reviewer status
-        boolean isReviewer = auth.getAuthorities().contains(new SimpleGrantedAuthority(AuthorityEnum.Authority.ROLE_CODE_REVIEWER.toString()));
-
-        // Requesting user
-        User requestingUser = (User) auth.getPrincipal();
-
-        // Load the existing assignment
-        Assignment existingAssignment = assignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new AssignmentNotFoundException("Could not find assignment with assignment ID " + assignmentId));
-
-        // If the assignment is already in a COMPLETED state, it should not be updated by anyone
-        if (existingAssignment.getStatus().equals(AssignmentStatusEnum.COMPLETED.toString())) {
-            throw new AssignmentUpdateException("Completed assignments cannot be updated.");
-        }
-
-        // If the user is not a reviewer and doesn't own the assignment, we should now allow them to update the assignment
-        if (!requestingUser.getId().equals(existingAssignment.getUser().getId()) && !isReviewer) {
-            throw new AssignmentUpdateException("You don't have permissions to update this assignment.");
-        }
-
-        // Merge the loaded assignment
-        Assignment mergedAssignment = new Assignment();
-        Assignment savedAssignment = new Assignment();
-
-        try {
-            mergedAssignment = DtoConverter.mergeUpdateAssignmentRequest(
-                    existingAssignment,
-                    updatedAssignment,
-                    requestingUser,
-                    isReviewer
-            );
-
-            savedAssignment = assignmentRepository.save(mergedAssignment);
-        } catch (Error e) {
-            System.out.println(e.toString());
-        }
-
-
-        return savedAssignment;
+    public Assignment updateById(Long assignmentId, UpdateAssignmentRequestDTO request) {
+        Assignment assignment = assignmentRepository.findById(assignmentId).orElseThrow();
+        assignment.setGithubUrl(request.getGithubUrl());
+        assignment.setBranch(request.getBranch());
+        assignment.setStatus(request.getStatus());
+        assignment.setReviewVideoUrl(request.getReviewVideoUrl());
+        return assignmentRepository.save(assignment);
     }
 
     public Assignment getAssignmentById(Long assignmentId) {
@@ -108,7 +74,7 @@ public class AssignmentService {
     public Assignment postAssignment(PostAssignmentRequest request) {
         return assignmentRepository.save(
                 new Assignment(
-                        AssignmentStatusEnum.SUBMITTED.toString(),
+                        AssignmentStatusEnum.WIP.toString(),
                         request.getAssignmentNumber(),
                         request.getGithubUrl(),
                         request.getBranch(),
@@ -125,4 +91,5 @@ public class AssignmentService {
 
         assignmentRepository.deleteById(assignmentId);
     }
+
 }
